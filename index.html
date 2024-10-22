@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey Ladder Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #e0f7fa;
+            font-family: 'Roboto', sans-serif;
+            color: #00695c;
+        }
+        #game-area {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            border: 4px solid #004d40;
+            border-radius: 15px;
+            margin-top: 20px;
+            background-color: #ffffff;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        .pole {
+            position: absolute;
+            width: 10px;
+            height: 100%;
+            background-color: #004d40;
+        }
+        .monkey {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #ffcc00;
+            border-radius: 50%;
+            top: -15px;
+            border: 2px solid #000000;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .banana {
+            position: absolute;
+            width: 20px;
+            height: 60px;
+            background-color: #ffdd00;
+            bottom: -15px;
+            border-radius: 30px 30px 30px 30px;
+            border: 2px solid #ffab00;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+            transform: rotate(-20deg);
+        }
+        .beam-preview {
+            position: absolute;
+            height: 5px;
+            background-color: rgba(0, 0, 255, 0.3);
+            cursor: pointer;
+        }
+        .beam {
+            position: absolute;
+            height: 5px;
+            background-color: #022d45;
+            border-radius: 5px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        button, input[type="number"], input[type="checkbox"] {
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+        button {
+            background-color: #00796b;
+            color: #ffffff;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #004d40;
+        }
+        input[type="number"] {
+            background-color: #ffffff;
+            border: 2px solid #00796b;
+            width: 70px; 
+            color: #00695c;
+        }
+        input[type="checkbox"] {
+            transform: scale(1.2);
+            margin-right: 10px;
+        }
+        h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monkey Ladder Game</h1>
+    <div id="game-area">
+        <div class="pole" style="left: 50px;"></div>
+        <div class="pole" style="left: 150px;"></div>
+        <div class="pole" style="left: 250px;"></div>
+        <div class="pole" style="left: 350px;"></div>
+
+        <div class="monkey" style="left: 40px;" id="monkey-1"></div>
+        <div class="monkey" style="left: 140px;" id="monkey-2"></div>
+        <div class="monkey" style="left: 240px;" id="monkey-3"></div>
+        <div class="monkey" style="left: 340px;" id="monkey-4"></div>
+
+        <div class="banana" style="left: 40px;" id="banana-1"></div>
+        <div class="banana" style="left: 140px;" id="banana-2"></div>
+        <div class="banana" style="left: 240px;" id="banana-3"></div>
+        <div class="banana" style="left: 340px;" id="banana-4"></div>
+    </div>
+    <div class="controls">
+        <input type="number" id="beam-count" placeholder="横梁数">
+        <button onclick="addRandomBeams()">添加横梁</button>
+        <button onclick="startGame()">开始下落</button>
+        <label><input type="checkbox" id="monkey-color-toggle" onchange="toggleMonkeyColors()"> 猴子变色</label>
+        <label><input type="checkbox" id="banana-color-toggle" onchange="toggleBananaColors()"> 香蕉变色</label>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('game-area');
+        const monkeys = [
+            document.getElementById('monkey-1'),
+            document.getElementById('monkey-2'),
+            document.getElementById('monkey-3'),
+            document.getElementById('monkey-4')
+        ];
+        const bananas = [
+            document.getElementById('banana-1'),
+            document.getElementById('banana-2'),
+            document.getElementById('banana-3'),
+            document.getElementById('banana-4')
+        ];
+        let beams = [];
+        let activeIntervals = [];
+
+        gameArea.addEventListener('mousemove', (e) => {
+            const x = e.offsetX;
+            const y = e.offsetY;
+
+            if (y < gameArea.offsetHeight && y > 0) {
+                const poleIndex = Math.floor((x - 50) / 100);
+                if (poleIndex >= 0 && poleIndex < 3) {
+                    const left = 55 + poleIndex * 100;
+                    showBeamPreview(left, y);
+                }
+            }
+        });
+
+        gameArea.addEventListener('mouseleave', () => {
+            const preview = document.querySelector('.beam-preview');
+            if (preview) {
+                preview.remove();
+            }
+        });
+
+        gameArea.addEventListener('click', (e) => {
+            const preview = document.querySelector('.beam-preview');
+            if (preview) {
+                const beam = document.createElement('div');
+                beam.className = 'beam';
+                beam.style.left = preview.style.left;
+                beam.style.top = preview.style.top;
+                beam.style.width = preview.style.width;
+                gameArea.appendChild(beam);
+                beams.push(beam);
+            }
+        });
+
+        function showBeamPreview(left, y) {
+            let preview = document.querySelector('.beam-preview');
+            if (!preview) {
+                preview = document.createElement('div');
+                preview.className = 'beam-preview';
+                gameArea.appendChild(preview);
+            }
+            preview.style.left = left + 'px';
+            preview.style.top = y + 'px';
+            preview.style.width = '100px';
+        }
+
+        function addRandomBeams() {
+            const beamCount = parseInt(document.getElementById('beam-count').value);
+            if (isNaN(beamCount) || beamCount <= 0) {
+                alert('Please enter a valid number of beams.');
+                return;
+            }
+
+            beams.forEach(beam => beam.remove());
+            beams = [];
+
+            const usedPositions = new Set();
+            for (let i = 0; i < beamCount; i++) {
+                let poleIndex = Math.floor(Math.random() * 3);
+                let y;
+                do {
+                    y = Math.floor(Math.random() * (gameArea.offsetHeight - 50)) + 25;
+                } while (usedPositions.has(`${poleIndex}-${y}`) || isHeightTooClose(y, usedPositions));
+                usedPositions.add(`${poleIndex}-${y}`);
+
+                const left = 55 + poleIndex * 100;
+                const beam = document.createElement('div');
+                beam.className = 'beam';
+                beam.style.left = left + 'px';
+                beam.style.top = y + 'px';
+                beam.style.width = '100px';
+                gameArea.appendChild(beam);
+                beams.push(beam);
+            }
+        }
+
+        function isHeightTooClose(newY, usedPositions) {
+            for (let position of usedPositions) {
+                const [, y] = position.split('-');
+                if (Math.abs(parseInt(y) - newY) < 20) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function startGame() {
+            resetGame();
+            monkeys.forEach((monkey, index) => {
+                let currentPole = index;
+                let y = 0;
+                let verticalSpeed = 2;
+                let lastBeam = null;
+                function moveMonkey() {
+                    if (y >= gameArea.offsetHeight - 30) {
+                        return;
+                    }
+                    let horizontalMove = false;
+                    beams.forEach(beam => {
+                        const beamY = parseInt(beam.style.top);
+                        const beamLeft = parseInt(beam.style.left);
+                        if (beam !== lastBeam && Math.abs(y - beamY) < 5 && (beamLeft === 55 + currentPole * 100 || beamLeft === 55 + (currentPole - 1) * 100)) {
+                            horizontalMove = true;
+                            let targetPole;
+                            if (beamLeft === 55 + currentPole * 100 && currentPole < 3) {
+                                targetPole = currentPole + 1;
+                            } else if (beamLeft === 55 + (currentPole - 1) * 100 && currentPole > 0) {
+                                targetPole = currentPole - 1;
+                            }
+                            lastBeam = beam;
+                            const horizontalInterval = setInterval(() => {
+                                let monkeyX = parseInt(monkey.style.left);
+                                if (monkeyX === 40 + targetPole * 100) {
+                                    clearInterval(horizontalInterval);
+                                    currentPole = targetPole;
+                                    y = beamY;
+                                    setTimeout(moveMonkey, 20);
+                                } else {
+                                    monkeyX += (targetPole > currentPole) ? 2 : -2;
+                                    monkey.style.left = monkeyX + 'px';
+                                }
+                            }, 20);
+                            activeIntervals.push(horizontalInterval);
+                        }
+                    });
+                    if (!horizontalMove) {
+                        y += verticalSpeed;
+                        monkey.style.top = y + 'px';
+                        const verticalInterval = setTimeout(moveMonkey, 20);
+                        activeIntervals.push(verticalInterval);
+                    }
+                }
+                moveMonkey();
+            });
+        }
+
+        function resetGame() {
+            activeIntervals.forEach(interval => {
+                clearInterval(interval);
+                clearTimeout(interval);
+            });
+            activeIntervals = [];
+            monkeys.forEach((monkey, index) => {
+                monkey.style.left = 40 + index * 100 + 'px';
+                monkey.style.top = '-15px';
+            });
+        }
+
+        function toggleMonkeyColors() {
+            const colorToggle = document.getElementById('monkey-color-toggle');
+            if (colorToggle.checked) {
+                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffa500'];
+                monkeys.forEach((monkey, index) => {
+                    monkey.style.backgroundColor = colors[index];
+                });
+            } else {
+                monkeys.forEach(monkey => {
+                    monkey.style.backgroundColor = '#ffcc00';
+                });
+            }
+        }
+
+        function toggleBananaColors() {
+            const colorToggle = document.getElementById('banana-color-toggle');
+            if (colorToggle.checked) {
+                let colors = ['#ff0000', '#00ff00', '#0000ff', '#ffa500'];
+                colors = colors.sort(() => Math.random() - 0.5);
+                bananas.forEach((banana, index) => {
+                    banana.style.backgroundColor = colors[index];
+                });
+            } else {
+                bananas.forEach(banana => {
+                    banana.style.backgroundColor = '#ffdd00';
+                });
+            }
+        }
+    </script>
+</body>
+</html>
